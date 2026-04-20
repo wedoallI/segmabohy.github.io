@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <title>Chat</title>
   <link rel="stylesheet" href="new.css">
+  <link rel="stylesheet" href="chat.css">
 </head>
 
 <body>
@@ -13,14 +14,18 @@
 </header>
 
 <main>
-  <h1>Chat</h1>
+  <div class="chat-container">
+    <h1>💬 Chat</h1>
 
-  <div id="messages" style="max-height:400px;overflow:auto;"></div>
+    <div id="messages"></div>
 
-  <input id="msg" placeholder="Message...">
-  <button onclick="send()">Send</button>
+    <div class="chat-input">
+      <input id="msg" placeholder="Type a message...">
+      <button onclick="send()">Send</button>
+    </div>
 
-  <p id="status"></p>
+    <p id="status"></p>
+  </div>
 </main>
 
 <script type="module">
@@ -31,9 +36,13 @@ import { getAuth, onAuthStateChanged }
 from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
-  apiKey: "YOUR_KEY",
-  authDomain: "YOUR_PROJECT.firebaseapp.com",
-  projectId: "YOUR_PROJECT"
+  apiKey: "AIzaSyCvBXdP5IfVTY1QDyALVTFH0WZgRtmiVDA",
+  authDomain: "gamehack-ee705.firebaseapp.com",
+  projectId: "gamehack-ee705",
+  storageBucket: "gamehack-ee705.firebasestorage.app",
+  messagingSenderId: "335014591760",
+  appId: "1:335014591760:web:cc169b187ea59767f77995",
+  measurementId: "G-EJGL05JHNP"
 };
 
 const app = initializeApp(firebaseConfig);
@@ -50,7 +59,7 @@ onAuthStateChanged(auth, (user) => {
     currentUser = user;
     status.textContent = "Logged in as " + user.email;
   } else {
-    status.textContent = "You must log in";
+    status.textContent = "Login to chat";
   }
 });
 
@@ -60,14 +69,24 @@ onSnapshot(q, (snapshot) => {
   messagesDiv.innerHTML = "";
   snapshot.forEach(doc => {
     const data = doc.data();
-    messagesDiv.innerHTML += `<p><b>${data.user}</b>: ${data.text}</p>`;
+    messagesDiv.innerHTML += `
+      <div class="msg">
+        <b>${data.user}</b><br>
+        ${data.text}
+      </div>
+    `;
   });
+
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
 });
 
 window.send = async () => {
   if (!currentUser) return alert("Login first");
 
-  const text = document.getElementById("msg").value;
+  const input = document.getElementById("msg");
+  const text = input.value;
+
+  if (!text.trim()) return;
 
   await addDoc(collection(db, "messages"), {
     text: text,
@@ -75,7 +94,7 @@ window.send = async () => {
     time: Date.now()
   });
 
-  document.getElementById("msg").value = "";
+  input.value = "";
 };
 </script>
 
