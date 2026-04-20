@@ -48,6 +48,10 @@
       <a href="privacy-policy.html" data-tippy-content="Privacy Policy"><i class="fas fa-user-lock"></i></a>
       <a href="https://discord.gg/V49EfgSWgr" data-tippy-content="Discord"><i class="fab fa-discord"></i></a>
       <a href="ide.html" data-tippy-content="IDE"><i class="fas fa-code"></i></a>
+      <a href="auth.html" data-tippy-content="Account">
+  <i class="fas fa-user"></i>
+</a>
+<span id="userDisplay" style="margin-left:10px;"></span>
     </nav>
   </header>
 
@@ -67,5 +71,29 @@
   <script src="tippy.js"></script>
   <script src="snackbar.js"></script>
   <script src="updown.js"></script>
+  <script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getAuth, onAuthStateChanged } 
+from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+
+const firebaseConfig = {
+  apiKey: "YOUR_KEY",
+  authDomain: "YOUR_PROJECT.firebaseapp.com",
+  projectId: "YOUR_PROJECT"
+};
+
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+
+const userDisplay = document.getElementById("userDisplay");
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    userDisplay.textContent = user.email;
+  } else {
+    userDisplay.textContent = "Not logged in";
+  }
+});
+</script>
 </body>
 </html>

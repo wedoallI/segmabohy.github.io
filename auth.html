@@ -1,20 +1,29 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>Login</title>
+  <meta charset="UTF-8">
+  <title>Account</title>
+  <link rel="stylesheet" href="new.css">
 </head>
+
 <body>
 
-<h2>Login / Sign Up</h2>
+<header>
+  <h2><a class="yex">Yex</a>'s Games</h2>
+</header>
 
-<input id="email" placeholder="Email"><br>
-<input id="password" type="password" placeholder="Password"><br>
+<main>
+  <h1>Account</h1>
 
-<button onclick="signup()">Sign Up</button>
-<button onclick="login()">Login</button>
-<button onclick="logout()">Logout</button>
+  <input id="email" placeholder="Email"><br><br>
+  <input id="password" type="password" placeholder="Password"><br><br>
 
-<p id="status"></p>
+  <button onclick="signup()">Sign Up</button>
+  <button onclick="login()">Login</button>
+  <button onclick="logout()">Logout</button>
+
+  <p id="status"></p>
+</main>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
@@ -31,32 +40,27 @@ const firebaseConfig = {
   measurementId: "G-EJGL05JHNP"
 };
 
-
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 
+const email = document.getElementById("email");
+const password = document.getElementById("password");
+const status = document.getElementById("status");
+
 window.signup = async () => {
-  const email = emailInput.value;
-  const password = passwordInput.value;
-  await createUserWithEmailAndPassword(auth, email, password);
-  status.innerText = "Signed up!";
+  await createUserWithEmailAndPassword(auth, email.value, password.value);
+  status.textContent = "Signed up!";
 };
 
 window.login = async () => {
-  const email = emailInput.value;
-  const password = passwordInput.value;
-  await signInWithEmailAndPassword(auth, email, password);
-  status.innerText = "Logged in!";
+  await signInWithEmailAndPassword(auth, email.value, password.value);
+  status.textContent = "Logged in!";
 };
 
 window.logout = async () => {
   await signOut(auth);
-  status.innerText = "Logged out!";
+  status.textContent = "Logged out!";
 };
-
-const emailInput = document.getElementById("email");
-const passwordInput = document.getElementById("password");
-const status = document.getElementById("status");
 </script>
 
 </body>

@@ -1,21 +1,34 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
   <title>Chat</title>
+  <link rel="stylesheet" href="new.css">
 </head>
+
 <body>
 
-<h2>Chat</h2>
+<header>
+  <h2><a class="yex">Yex</a>'s Chat</h2>
+</header>
 
-<div id="messages"></div>
+<main>
+  <h1>Chat</h1>
 
-<input id="msg" placeholder="Type message...">
-<button onclick="send()">Send</button>
+  <div id="messages" style="max-height:400px;overflow:auto;"></div>
+
+  <input id="msg" placeholder="Message...">
+  <button onclick="send()">Send</button>
+
+  <p id="status"></p>
+</main>
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, collection, addDoc, onSnapshot, query, orderBy } 
 from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, onAuthStateChanged } 
+from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "YOUR_KEY",
@@ -25,8 +38,21 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
 
 const messagesDiv = document.getElementById("messages");
+const status = document.getElementById("status");
+
+let currentUser = null;
+
+onAuthStateChanged(auth, (user) => {
+  if (user) {
+    currentUser = user;
+    status.textContent = "Logged in as " + user.email;
+  } else {
+    status.textContent = "You must log in";
+  }
+});
 
 const q = query(collection(db, "messages"), orderBy("time"));
 
@@ -34,15 +60,18 @@ onSnapshot(q, (snapshot) => {
   messagesDiv.innerHTML = "";
   snapshot.forEach(doc => {
     const data = doc.data();
-    messagesDiv.innerHTML += `<p>${data.text}</p>`;
+    messagesDiv.innerHTML += `<p><b>${data.user}</b>: ${data.text}</p>`;
   });
 });
 
 window.send = async () => {
+  if (!currentUser) return alert("Login first");
+
   const text = document.getElementById("msg").value;
 
   await addDoc(collection(db, "messages"), {
     text: text,
+    user: currentUser.email,
     time: Date.now()
   });
 
