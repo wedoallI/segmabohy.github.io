@@ -3,18 +3,89 @@
 <head>
   <meta charset="UTF-8">
   <title>Chat</title>
+
   <link rel="stylesheet" href="new.css">
-  <link rel="stylesheet" href="chat.css">
+  <link rel="stylesheet" href="snackbar.css">
+
+  <style>
+    .chat-box {
+      width: 80%;
+      max-width: 900px;
+      margin: 2rem auto;
+      background: rgba(0,0,0,0.4);
+      border-radius: 12px;
+      padding: 1rem;
+    }
+
+    #messages {
+      height: 400px;
+      overflow-y: auto;
+      padding: 10px;
+      background: rgba(0,0,0,0.3);
+      border-radius: 10px;
+    }
+
+    .msg {
+      padding: 10px;
+      margin: 8px 0;
+      border-radius: 8px;
+      background: rgba(255,255,255,0.05);
+      position: relative;
+    }
+
+    .msg b {
+      color: var(--theme-clr);
+    }
+
+    .delete-btn {
+      position: absolute;
+      right: 10px;
+      top: 10px;
+      background: red;
+      border: none;
+      color: white;
+      border-radius: 5px;
+      cursor: pointer;
+      display: none;
+    }
+
+    .chat-input {
+      display: flex;
+      margin-top: 10px;
+      gap: 10px;
+    }
+
+    .chat-input input {
+      flex: 1;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+    }
+
+    .chat-input button {
+      background: var(--theme-clr);
+      border: none;
+      padding: 10px;
+      border-radius: 8px;
+      color: white;
+      cursor: pointer;
+    }
+  </style>
 </head>
 
 <body>
 
 <header>
-  <h2><a class="yex">Yex</a>'s Chat</h2>
+  <h2 id="header"><a class="yex">Yex</a>'s Chat</h2>
+  <nav>
+    <a href="index.html"><i class="fas fa-home"></i></a>
+    <a href="games.html"><i class="fas fa-gamepad"></i></a>
+    <a class="active"><i class="fas fa-comments"></i></a>
+  </nav>
 </header>
 
 <main>
-  <div class="chat-container">
+  <div class="chat-box">
     <h1>💬 Chat</h1>
 
     <div id="messages"></div>
@@ -30,7 +101,7 @@
 
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, collection, addDoc, onSnapshot, query, orderBy } 
+import { getFirestore, collection, addDoc, onSnapshot, query, orderBy, deleteDoc, doc } 
 from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, onAuthStateChanged } 
 from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
@@ -39,42 +110,55 @@ const firebaseConfig = {
   apiKey: "AIzaSyCvBXdP5IfVTY1QDyALVTFH0WZgRtmiVDA",
   authDomain: "gamehack-ee705.firebaseapp.com",
   projectId: "gamehack-ee705",
-  storageBucket: "gamehack-ee705.firebasestorage.app",
-  messagingSenderId: "335014591760",
-  appId: "1:335014591760:web:cc169b187ea59767f77995",
-  measurementId: "G-EJGL05JHNP"
 };
+
+const ADMIN_EMAIL = "your@email.com"; // 👈 CHANGE THIS
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 
-const messagesDiv = document.getElementById("messages");
-const status = document.getElementById("status");
-
 let currentUser = null;
 
 onAuthStateChanged(auth, (user) => {
-  if (user) {
-    currentUser = user;
-    status.textContent = "Logged in as " + user.email;
-  } else {
-    status.textContent = "Login to chat";
-  }
+  currentUser = user;
+  document.getElementById("status").textContent =
+    user ? "Logged in as " + user.email : "Login required";
 });
+
+const messagesDiv = document.getElementById("messages");
 
 const q = query(collection(db, "messages"), orderBy("time"));
 
 onSnapshot(q, (snapshot) => {
   messagesDiv.innerHTML = "";
-  snapshot.forEach(doc => {
-    const data = doc.data();
-    messagesDiv.innerHTML += `
-      <div class="msg">
-        <b>${data.user}</b><br>
-        ${data.text}
-      </div>
+
+  snapshot.forEach(docSnap => {
+    const data = docSnap.data();
+
+    const div = document.createElement("div");
+    div.className = "msg";
+
+    div.innerHTML = `
+      <b>${data.user}</b><br>
+      ${data.text}
     `;
+
+    // ADMIN DELETE BUTTON
+    if (currentUser && currentUser.email === ADMIN_EMAIL) {
+      const btn = document.createElement("button");
+      btn.textContent = "X";
+      btn.className = "delete-btn";
+      btn.style.display = "block";
+
+      btn.onclick = async () => {
+        await deleteDoc(doc(db, "messages", docSnap.id));
+      };
+
+      div.appendChild(btn);
+    }
+
+    messagesDiv.appendChild(div);
   });
 
   messagesDiv.scrollTop = messagesDiv.scrollHeight;
@@ -84,12 +168,10 @@ window.send = async () => {
   if (!currentUser) return alert("Login first");
 
   const input = document.getElementById("msg");
-  const text = input.value;
-
-  if (!text.trim()) return;
+  if (!input.value.trim()) return;
 
   await addDoc(collection(db, "messages"), {
-    text: text,
+    text: input.value,
     user: currentUser.email,
     time: Date.now()
   });
