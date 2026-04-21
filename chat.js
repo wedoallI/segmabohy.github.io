@@ -1,12 +1,24 @@
-firebase.initializeApp({
-  apiKey: "AIzaSyAa9nIvVqumqkClFO8il19Va0KoQ_wmN8M",
-  authDomain: "yexs-chat.firebaseapp.com",
-  databaseURL: "https://yexs-chat-default-rtdb.firebaseio.com",
-  projectId: "yexs-chat",
-  storageBucket: "yexs-chat.appspot.com",
-  messagingSenderId: "784190773413",
-  appId: "1:784190773413:web:5de305c6e34bc779a6154c"
-});
+// Import the functions you need from the SDKs you need
+import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
+// TODO: Add SDKs for Firebase products that you want to use
+// https://firebase.google.com/docs/web/setup#available-libraries
+
+// Your web app's Firebase configuration
+// For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyCvBXdP5IfVTY1QDyALVTFH0WZgRtmiVDA",
+  authDomain: "gamehack-ee705.firebaseapp.com",
+  projectId: "gamehack-ee705",
+  storageBucket: "gamehack-ee705.firebasestorage.app",
+  messagingSenderId: "335014591760",
+  appId: "1:335014591760:web:cc169b187ea59767f77995",
+  measurementId: "G-EJGL05JHNP"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 const database = firebase.database();
 const auth = firebase.auth();
 const storage = firebase.storage();
