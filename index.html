@@ -912,20 +912,20 @@
               <label for="group-codes-input">Friend codes</label>
               <input id="group-codes-input" type="text" placeholder="Paste codes separated by commas">
             </div>
-            <p class="hint">Invite multiple people with their friend codes. Private groups are still monitored by admins.</p>
+            <p class="hint">Invite multiple people with their friend codes. Private groups are still monitored by owners.</p>
             <button id="create-group-btn" class="primary" type="button">Create Private Group</button>
           </div>
 
           <div>
-            <h3>Admin</h3>
-            <p class="hint">Admin powers only activate when the signed-in email is <code>admin@gmail.com</code>. Create that account separately in Firebase Auth, not in this page.</p>
+            <h3>Owner Panel</h3>
+            <p class="hint">Owner powers activate for the usernames <code>ahmad</code> and <code>muhammad</code> after they sign in. Passwords are managed in Firebase Auth, not in this page.</p>
             <div id="admin-panel" class="admin-panel">
               <div class="field">
                 <label for="admin-search">Find person</label>
                 <input id="admin-search" type="text" placeholder="Search username or email">
               </div>
               <div id="admin-users" class="admin-list">
-                <div class="empty-state">Admin tools show up after admin login.</div>
+                <div class="empty-state">Owner tools show up after owner login.</div>
               </div>
               <div id="admin-settings" class="admin-settings">
                 <p id="admin-selected-name">No person selected</p>
@@ -1028,7 +1028,7 @@
           <button id="leave-room-btn" class="danger" type="button">Leave Chat</button>
         </div>
 
-        <div id="monitor-banner" class="monitor-banner">All chats are monitored by admins for safety.</div>
+        <div id="monitor-banner" class="monitor-banner">All chats are monitored by owners for safety.</div>
 
         <div class="top-tools">
           <input id="message-search" type="text" placeholder="Search this room">
@@ -1114,7 +1114,9 @@
       measurementId: "G-EJGL05JHNP"
     };
 
-    const ADMIN_EMAIL = "admin@gmail.com";
+    const OWNER_USERNAMES = ["ahmad", "muhammad"];
+    const OWNER_RANK = "Owner";
+    const OWNER_RANK_COLOR = "#f0c63c";
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
@@ -1206,8 +1208,35 @@
       return user?.displayName?.trim() || user?.email || "Unknown";
     }
 
+    function normalizeName(value) {
+      return String(value || "").trim().toLowerCase();
+    }
+
+    function isOwnerName(value) {
+      return OWNER_USERNAMES.includes(normalizeName(value));
+    }
+
     function isAdminUser(user = currentUser) {
-      return Boolean(user && user.email === ADMIN_EMAIL);
+      return Boolean(
+        isOwnerName(currentProfile?.username) ||
+        isOwnerName(user?.displayName) ||
+        isOwnerName(user?.email?.split("@")[0])
+      );
+    }
+
+    function getOwnerProfilePatch(source = currentProfile || {}) {
+      const username = source.username || source.displayName || "";
+      if (!isOwnerName(username)) {
+        return {};
+      }
+
+      return {
+        owner: true,
+        rank: OWNER_RANK,
+        rankColor: OWNER_RANK_COLOR,
+        banned: false,
+        timeoutUntil: null
+      };
     }
 
     function getRestrictionMessage(profile = currentProfile) {
@@ -1231,8 +1260,8 @@
         return "Pick someone from the list to manage them.";
       }
 
-      if (profile.email === ADMIN_EMAIL) {
-        return "Main admin account";
+      if (profile.owner || isOwnerName(profile.username) || isOwnerName(profile.email?.split("@")[0])) {
+        return "Owner account";
       }
 
       if (profile.banned) {
@@ -1247,6 +1276,9 @@
     }
 
     function getRankColor(profile) {
+      if (profile?.owner || isOwnerName(profile?.username) || isOwnerName(profile?.email?.split("@")[0])) {
+        return OWNER_RANK_COLOR;
+      }
       return profile?.rankColor || "#7d3ac1";
     }
 
@@ -1488,6 +1520,13 @@
           updates.friendUids = [];
         }
 
+        Object.assign(updates, getOwnerProfilePatch({
+          ...existingProfile,
+          ...updates,
+          username: existingProfile.username || preferredUsername.trim() || getDisplayName(user),
+          email: existingProfile.email || user.email
+        }));
+
         if (Object.keys(updates).length > 0) {
           await setDoc(profileRef, updates, { merge: true });
         }
@@ -1514,6 +1553,7 @@
         username,
         friendCode,
         friendUids: [],
+        ...getOwnerProfilePatch({ username, email: user.email }),
         createdAt: Date.now()
       };
 
@@ -1533,12 +1573,23 @@
 
       unsubscribeProfile = onSnapshot(
         doc(db, "profiles", user.uid),
-        (snapshot) => {
+        async (snapshot) => {
           if (!snapshot.exists()) {
             return;
           }
 
-          currentProfile = snapshot.data();
+          const liveProfile = snapshot.data();
+          const ownerPatch = getOwnerProfilePatch(liveProfile);
+          const needsOwnerPatch = Object.entries(ownerPatch).some(([key, value]) => liveProfile[key] !== value);
+
+          if (needsOwnerPatch) {
+            await setDoc(doc(db, "profiles", user.uid), ownerPatch, { merge: true });
+          }
+
+          currentProfile = {
+            ...liveProfile,
+            ...ownerPatch
+          };
           friendCodeBox.textContent = currentProfile.friendCode || "Unavailable";
           setSignedInState(currentUser);
         },
@@ -1562,7 +1613,7 @@
       roomsDiv.innerHTML = '<div class="empty-state">Your chats will appear here.</div>';
       messagesDiv.innerHTML = '<div class="empty-state">Pick a chat to start messaging.</div>';
       roomLabel.textContent = "No room selected";
-      monitorBanner.textContent = "All chats are monitored by admins for safety.";
+      monitorBanner.textContent = "All chats are monitored by owners for safety.";
       voiceCallLink.href = "#";
       videoCallLink.href = "#";
       leaveRoomBtn.classList.add("hidden");
@@ -1646,7 +1697,7 @@
 
       if (!roomId) {
         roomLabel.textContent = "No room selected";
-        monitorBanner.textContent = "All chats are monitored by admins for safety.";
+        monitorBanner.textContent = "All chats are monitored by owners for safety.";
         voiceCallLink.href = "#";
         videoCallLink.href = "#";
         renderMemberList();
@@ -1655,8 +1706,8 @@
 
       roomLabel.textContent = `Current room: ${roomName} • ${getRoomTypeLabel(activeRoomData)}`;
       monitorBanner.textContent = activeRoomData?.type === "private-group"
-        ? "This private group is invite-only, and admins can access it from the moment it is created."
-        : "All chats are monitored by admins for safety.";
+        ? "This private group is invite-only, and owners can access it from the moment it is created."
+        : "All chats are monitored by owners for safety.";
       voiceCallLink.href = getCallUrl(roomId, roomName, "voice");
       videoCallLink.href = getCallUrl(roomId, roomName, "video");
       leaveRoomBtn.classList.toggle(
@@ -1677,7 +1728,7 @@
 
     function renderAdminUsers() {
       if (!isAdminUser()) {
-        adminUsers.innerHTML = '<div class="empty-state">Admin tools show up after admin login.</div>';
+        adminUsers.innerHTML = '<div class="empty-state">Owner tools show up after owner login.</div>';
         resetAdminSelection();
         return;
       }
@@ -1792,7 +1843,7 @@
 
     async function updateManagedUser(update) {
       if (!isAdminUser()) {
-        setStatus(authStatus, "Admin login required.", true);
+        setStatus(authStatus, "Owner login required.", true);
         return;
       }
 
@@ -1801,8 +1852,8 @@
         return;
       }
 
-      if (selectedAdminProfile.email === ADMIN_EMAIL) {
-        setStatus(authStatus, "Main admin account cannot be edited here.", true);
+      if (selectedAdminProfile.owner || isOwnerName(selectedAdminProfile.username) || isOwnerName(selectedAdminProfile.email?.split("@")[0])) {
+        setStatus(authStatus, "Owner accounts cannot be edited here.", true);
         return;
       }
 
@@ -2262,8 +2313,8 @@
         return;
       }
 
-      if (targetProfile.email === ADMIN_EMAIL) {
-        setStatus(chatStatus, "Admin account cannot be moderated here.", true);
+      if (targetProfile.owner || isOwnerName(targetProfile.username) || isOwnerName(targetProfile.email?.split("@")[0])) {
+        setStatus(chatStatus, "Owner accounts cannot be moderated here.", true);
         return;
       }
 
@@ -2713,7 +2764,7 @@
         });
 
         await addDoc(collection(db, "chatRooms", roomId, "messages"), {
-          text: `This private group was created by ${currentProfile.username || getDisplayName(currentUser)}. All chats here are monitored by admins.`,
+          text: `This private group was created by ${currentProfile.username || getDisplayName(currentUser)}. All chats here are monitored by owners.`,
           user: "wedoall",
           userEmail: "system@wedoall.local",
           senderUid: "",
