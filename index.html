@@ -22,6 +22,42 @@
       --shadow: 0 24px 70px rgba(0, 0, 0, 0.35);
     }
 
+    body[data-theme="sunset"] {
+      --bg-1: #140b11;
+      --bg-2: #2a1717;
+      --panel: rgba(36, 22, 28, 0.8);
+      --panel-border: rgba(255, 215, 190, 0.12);
+      --text: #fff3ea;
+      --muted: #d6b6a5;
+      --accent: #d45a5a;
+      --accent-2: #f09a4b;
+      --shadow: 0 24px 70px rgba(0, 0, 0, 0.32);
+    }
+
+    body[data-theme="ocean"] {
+      --bg-1: #07131b;
+      --bg-2: #0e2733;
+      --panel: rgba(13, 29, 39, 0.82);
+      --panel-border: rgba(173, 228, 255, 0.12);
+      --text: #edfaff;
+      --muted: #9dc3d3;
+      --accent: #188bb8;
+      --accent-2: #42c8c1;
+      --shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
+    }
+
+    body[data-theme="forest"] {
+      --bg-1: #09140d;
+      --bg-2: #15261b;
+      --panel: rgba(20, 35, 25, 0.82);
+      --panel-border: rgba(197, 242, 189, 0.11);
+      --text: #f4fff1;
+      --muted: #aac6a5;
+      --accent: #3d9d55;
+      --accent-2: #a7c957;
+      --shadow: 0 24px 70px rgba(0, 0, 0, 0.34);
+    }
+
     * {
       box-sizing: border-box;
     }
@@ -882,6 +918,12 @@
       font-size: 0.9rem;
     }
 
+    .typing-indicator.active {
+      color: var(--text);
+      background: rgba(163, 54, 162, 0.12);
+      border-color: rgba(163, 54, 162, 0.28);
+    }
+
     .reply-bar {
       display: none;
       justify-content: space-between;
@@ -1123,6 +1165,15 @@
               <div class="settings-card">
                 <h4>Cursor</h4>
                 <div class="field">
+                  <label for="theme-select">Theme</label>
+                  <select id="theme-select">
+                    <option value="default">Default</option>
+                    <option value="sunset">Sunset</option>
+                    <option value="ocean">Ocean</option>
+                    <option value="forest">Forest</option>
+                  </select>
+                </div>
+                <div class="field">
                   <label for="view-mode">View mode</label>
                   <select id="view-mode">
                     <option value="auto">Auto</option>
@@ -1347,6 +1398,7 @@
     const availabilitySelect = document.getElementById("availability-select");
     const customStatusInput = document.getElementById("custom-status");
     const avatarUrlInput = document.getElementById("avatar-url");
+    const themeSelect = document.getElementById("theme-select");
     const viewModeSelect = document.getElementById("view-mode");
     const cursorStyle = document.getElementById("cursor-style");
     const soundLevel = document.getElementById("sound-level");
@@ -1565,6 +1617,18 @@
       }
       try {
         localStorage.setItem("wedoall-view-mode", normalized);
+      } catch {}
+    }
+
+    function applyTheme(theme) {
+      const normalized = theme || "default";
+      if (normalized === "default") {
+        document.body.removeAttribute("data-theme");
+      } else {
+        document.body.setAttribute("data-theme", normalized);
+      }
+      try {
+        localStorage.setItem("wedoall-theme", normalized);
       } catch {}
     }
 
@@ -2296,6 +2360,7 @@
       availabilitySelect.value = loggedIn && currentProfile ? getAvailability(currentProfile) : "active";
       customStatusInput.value = loggedIn && currentProfile?.customStatus ? currentProfile.customStatus : "";
       avatarUrlInput.value = loggedIn && currentProfile?.avatarUrl ? currentProfile.avatarUrl : "";
+      themeSelect.value = loggedIn && currentProfile?.theme ? currentProfile.theme : (localStorage.getItem("wedoall-theme") || "default");
       viewModeSelect.value = loggedIn && currentProfile?.viewMode ? currentProfile.viewMode : (localStorage.getItem("wedoall-view-mode") || "auto");
       cursorStyle.value = loggedIn && currentProfile?.cursorStyle ? currentProfile.cursorStyle : (localStorage.getItem("wedoall-cursor-style") || "default");
       soundLevel.value = loggedIn && currentProfile?.soundLevel ? currentProfile.soundLevel : "soft";
@@ -2454,13 +2519,18 @@
     function renderTypingIndicator(entries) {
       if (!entries.length) {
         typingIndicator.textContent = "Nobody is typing.";
+        typingIndicator.classList.remove("active");
         return;
       }
 
       const names = entries.map((entry) => entry.username || "Someone");
-      typingIndicator.textContent = names.length === 1
+      const label = names.length === 1
         ? `${names[0]} is typing...`
-        : `${names.slice(0, 2).join(", ")} ${names.length > 2 ? "and others " : ""}are typing...`;
+        : names.length === 2
+          ? `${names[0]} and ${names[1]} are typing...`
+          : `${names[0]}, ${names[1]}, and ${names.length - 2} more are typing...`;
+      typingIndicator.textContent = `Live now: ${label}`;
+      typingIndicator.classList.add("active");
     }
 
     async function setTypingState(isTyping) {
@@ -3597,10 +3667,12 @@
       const selectedAvailability = availabilitySelect.value;
       const selectedCustomStatus = customStatusInput.value.trim();
       const selectedAvatarUrl = avatarUrlInput.value.trim();
+      const selectedTheme = themeSelect.value;
       const selectedViewMode = viewModeSelect.value;
       const selectedCursor = cursorStyle.value;
       const selectedSoundLevel = soundLevel.value;
 
+      applyTheme(selectedTheme);
       applyViewMode(selectedViewMode);
       applyCursorStyle(selectedCursor);
 
@@ -3616,6 +3688,7 @@
             availability: selectedAvailability,
             customStatus: selectedCustomStatus,
             avatarUrl: selectedAvatarUrl,
+            theme: selectedTheme,
             viewMode: selectedViewMode,
             cursorStyle: selectedCursor,
             soundLevel: selectedSoundLevel,
@@ -3753,8 +3826,10 @@
           watchAdminUsers();
           watchAuditLogs();
           watchProfilesDirectory();
+          applyTheme(currentProfile?.theme || localStorage.getItem("wedoall-theme") || "default");
           applyViewMode(currentProfile?.viewMode || localStorage.getItem("wedoall-view-mode") || "auto");
           applyCursorStyle(currentProfile?.cursorStyle || localStorage.getItem("wedoall-cursor-style") || "default");
+          themeSelect.value = currentProfile?.theme || localStorage.getItem("wedoall-theme") || "default";
           viewModeSelect.value = currentProfile?.viewMode || localStorage.getItem("wedoall-view-mode") || "auto";
           cursorStyle.value = currentProfile?.cursorStyle || localStorage.getItem("wedoall-cursor-style") || "default";
           soundLevel.value = currentProfile?.soundLevel || "soft";
@@ -3771,6 +3846,8 @@
     setSignedInState(null);
     clearRoomState();
     updateNotificationsButton();
+    applyTheme(localStorage.getItem("wedoall-theme") || "default");
+    themeSelect.value = localStorage.getItem("wedoall-theme") || "default";
     applyViewMode(localStorage.getItem("wedoall-view-mode") || "auto");
     viewModeSelect.value = localStorage.getItem("wedoall-view-mode") || "auto";
     applyCursorStyle(localStorage.getItem("wedoall-cursor-style") || "default");
