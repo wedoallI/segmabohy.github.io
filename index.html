@@ -1030,6 +1030,12 @@
               <div id="admin-users" class="admin-list">
                 <div class="empty-state">Owner tools show up after owner login.</div>
               </div>
+              <div class="admin-settings">
+                <p><strong>Owner Audit Log</strong></p>
+                <div id="audit-log-list" class="admin-list">
+                  <div class="empty-state">Owner actions will appear here.</div>
+                </div>
+              </div>
               <div id="admin-settings" class="admin-settings">
                 <p id="admin-selected-name">No person selected</p>
                 <p id="admin-selected-status" class="hint">Pick someone from the list to manage them.</p>
@@ -1283,6 +1289,7 @@
     const adminPanel = document.getElementById("admin-panel");
     const adminSearch = document.getElementById("admin-search");
     const adminUsers = document.getElementById("admin-users");
+    const auditLogList = document.getElementById("audit-log-list");
     const adminSelectedName = document.getElementById("admin-selected-name");
     const adminSelectedStatus = document.getElementById("admin-selected-status");
     const adminUsername = document.getElementById("admin-username");
@@ -1344,6 +1351,7 @@
     let unsubscribeMessages = null;
     let unsubscribeProfile = null;
     let unsubscribeAdminUsers = null;
+    let unsubscribeAuditLogs = null;
     let unsubscribeProfilesDirectory = null;
     let unsubscribeTyping = null;
     let isInitialMessageLoad = true;
@@ -1991,6 +1999,7 @@
     function renderAdminUsers() {
       if (!isAdminUser()) {
         adminUsers.innerHTML = '<div class="empty-state">Owner tools show up after owner login.</div>';
+        auditLogList.innerHTML = '<div class="empty-state">Owner actions will appear here.</div>';
         resetAdminSelection();
         return;
       }
@@ -2037,9 +2046,69 @@
           unsubscribeAdminUsers();
           unsubscribeAdminUsers = null;
         }
+        if (unsubscribeAuditLogs) {
+          unsubscribeAuditLogs();
+          unsubscribeAuditLogs = null;
+        }
         adminProfiles = [];
         renderAdminUsers();
       }
+    }
+
+    async function logOwnerAction(action, details = {}) {
+      if (!isAdminUser()) {
+        return;
+      }
+
+      try {
+        await addDoc(collection(db, "ownerAuditLogs"), {
+          action,
+          actorUid: currentUser?.uid || "",
+          actorName: currentProfile?.username || getDisplayName(currentUser),
+          roomId: activeRoomId || "",
+          roomName: activeRoomName || "",
+          details,
+          time: Date.now(),
+          createdAt: serverTimestamp()
+        });
+      } catch (error) {
+        console.error("Audit log failed:", error);
+      }
+    }
+
+    function watchAuditLogs() {
+      if (!isAdminUser()) {
+        return;
+      }
+
+      if (unsubscribeAuditLogs) {
+        unsubscribeAuditLogs();
+      }
+
+      const auditQuery = query(collection(db, "ownerAuditLogs"), orderBy("time", "desc"));
+      unsubscribeAuditLogs = onSnapshot(
+        auditQuery,
+        (snapshot) => {
+          const entries = snapshot.docs.slice(0, 12).map((docSnap) => docSnap.data());
+          auditLogList.innerHTML = "";
+
+          if (!entries.length) {
+            auditLogList.innerHTML = '<div class="empty-state">Owner actions will appear here.</div>';
+            return;
+          }
+
+          entries.forEach((entry) => {
+            const item = document.createElement("div");
+            item.className = "pinned-item";
+            const roomText = entry.roomName ? ` in ${entry.roomName}` : "";
+            item.innerHTML = `<strong>${escapeHtml(entry.actorName || "Owner")}</strong><div>${escapeHtml(entry.action || "updated something")}${roomText}</div><small>${escapeHtml(formatTime(entry.time || Date.now()))}</small>`;
+            auditLogList.append(item);
+          });
+        },
+        (error) => {
+          setStatus(authStatus, error.message, true);
+        }
+      );
     }
 
     function watchAdminUsers() {
@@ -2121,6 +2190,10 @@
 
       try {
         await setDoc(doc(db, "profiles", selectedAdminProfile.uid), update, { merge: true });
+        await logOwnerAction("updated a user profile", {
+          targetUid: selectedAdminProfile.uid,
+          updateKeys: Object.keys(update)
+        });
         setStatus(authStatus, "Admin settings saved.");
       } catch (error) {
         setStatus(authStatus, error.message, true);
@@ -2580,6 +2653,7 @@
           },
           { merge: true }
         );
+        await logOwnerAction("edited a message", { messageId });
         setStatus(chatStatus, "Message updated.");
       } catch (error) {
         setStatus(chatStatus, error.message, true);
@@ -2589,6 +2663,7 @@
     async function deleteMessage(messageId) {
       try {
         await deleteDoc(doc(db, "chatRooms", activeRoomId, "messages", messageId));
+        await logOwnerAction("deleted a message", { messageId });
         setStatus(chatStatus, "Message deleted.");
       } catch (error) {
         setStatus(chatStatus, error.message, true);
@@ -3012,6 +3087,9 @@
           iconUrl: groupIconInput.value.trim(),
           updatedAt: serverTimestamp()
         }, { merge: true });
+        await logOwnerAction("saved group settings", {
+          groupName: groupRenameInput.value.trim() || activeRoomData.name || "Private Group"
+        });
         setStatus(chatStatus, "Group settings saved.");
       } catch (error) {
         setStatus(chatStatus, error.message, true);
@@ -3061,6 +3139,10 @@
         });
 
         groupAddCodeInput.value = "";
+        await logOwnerAction("added a group member", {
+          targetUid: friend.uid,
+          targetName: friend.username || friend.email || "Unknown"
+        });
         setStatus(chatStatus, `${friend.username || friend.email} was added to the group.`);
       } catch (error) {
         setStatus(chatStatus, error.message, true);
@@ -3094,6 +3176,10 @@
           system: true
         });
 
+        await logOwnerAction("removed a group member", {
+          targetUid: profile.uid,
+          targetName: profile.username || profile.email || "Unknown"
+        });
         setStatus(chatStatus, `${profile.username || profile.email} was kicked from the group.`);
       } catch (error) {
         setStatus(chatStatus, error.message, true);
@@ -3123,6 +3209,9 @@
           pinnedMessages: pins.slice(0, 5),
           updatedAt: serverTimestamp()
         }, { merge: true });
+        await logOwnerAction(existingIndex >= 0 ? "unpinned a message" : "pinned a message", {
+          messageId
+        });
         setStatus(chatStatus, existingIndex >= 0 ? "Message unpinned." : "Message pinned.");
       } catch (error) {
         setStatus(chatStatus, error.message, true);
@@ -3603,6 +3692,7 @@
           watchCurrentProfile(user);
           watchRooms(user);
           watchAdminUsers();
+          watchAuditLogs();
           watchProfilesDirectory();
           applyCursorStyle(currentProfile?.cursorStyle || localStorage.getItem("wedoall-cursor-style") || "default");
           cursorStyle.value = currentProfile?.cursorStyle || localStorage.getItem("wedoall-cursor-style") || "default";
