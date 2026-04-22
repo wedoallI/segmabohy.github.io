@@ -1456,6 +1456,7 @@
       getDocs,
       getDoc,
       setDoc,
+      updateDoc,
       serverTimestamp,
       arrayUnion,
       arrayRemove
@@ -2655,14 +2656,15 @@
       }
 
       try {
-        await setDoc(
-          doc(db, "chatRooms", activeRoomId, "typing", currentUser.uid),
+        await updateDoc(
+          doc(db, "chatRooms", activeRoomId),
           {
-            username: getDisplayName(currentUser),
-            updatedAt: Date.now(),
-            isTyping
-          },
-          { merge: true }
+            [`typingState.${currentUser.uid}`]: {
+              username: getDisplayName(currentUser),
+              updatedAt: Date.now(),
+              isTyping
+            }
+          }
         );
       } catch (error) {
         console.error("Typing state failed:", error);
@@ -3083,13 +3085,27 @@
       }
 
       unsubscribeTyping = onSnapshot(
-        collection(db, "chatRooms", roomId, "typing"),
+        doc(db, "chatRooms", roomId),
         (snapshot) => {
+          if (!snapshot.exists()) {
+            renderTypingIndicator([]);
+            return;
+          }
+
+          const roomData = snapshot.data();
+          activeRoomData = {
+            ...(roomsById.get(roomId) || {}),
+            ...roomData,
+            id: roomId
+          };
+
           const now = Date.now();
-          const entries = snapshot.docs
-            .map((typingDoc) => typingDoc.data())
-            .filter((entry) => entry.isTyping && entry.username !== getDisplayName(currentUser) && now - (entry.updatedAt || 0) < 4000);
+          const entries = Object.values(roomData.typingState || {})
+            .filter((entry) => entry && entry.isTyping && entry.username !== getDisplayName(currentUser) && now - (entry.updatedAt || 0) < 4000);
+
           renderTypingIndicator(entries);
+          renderPinnedMessages();
+          renderGroupSettings();
         },
         () => {
           renderTypingIndicator([]);
