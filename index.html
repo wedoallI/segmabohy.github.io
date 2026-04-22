@@ -448,6 +448,31 @@
       overflow-y: auto;
     }
 
+    .friend-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+
+    .friend-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .friend-row button {
+      min-width: 0;
+      padding: 8px 10px;
+      border-radius: 12px;
+    }
+
     .member-row {
       display: flex;
       align-items: center;
@@ -864,7 +889,17 @@
               <label for="friend-code-input">Friend code</label>
               <input id="friend-code-input" type="text" placeholder="Enter a friend's code" maxlength="12">
             </div>
-            <button id="add-friend-btn" class="primary" type="button">Create / Open Chat</button>
+            <div class="actions">
+              <button id="add-friend-btn" class="primary" type="button">Create / Open Chat</button>
+              <button id="save-friend-btn" class="secondary" type="button">Add Friend</button>
+            </div>
+          </div>
+
+          <div>
+            <h3>Friends</h3>
+            <div id="friends-list" class="friend-list">
+              <div class="empty-state">Add a friend once, then open chats from here.</div>
+            </div>
           </div>
 
           <div>
@@ -990,6 +1025,7 @@
           <span id="room-label" class="room-label">No room selected</span>
           <a id="voice-call-link" href="#" target="_blank" rel="noopener noreferrer">Join Voice Call</a>
           <a id="video-call-link" href="#" target="_blank" rel="noopener noreferrer">Join Video Call</a>
+          <button id="leave-room-btn" class="danger" type="button">Leave Chat</button>
         </div>
 
         <div id="monitor-banner" class="monitor-banner">All chats are monitored by admins for safety.</div>
@@ -1063,7 +1099,9 @@
       getDocs,
       getDoc,
       setDoc,
-      serverTimestamp
+      serverTimestamp,
+      arrayUnion,
+      arrayRemove
     } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -1093,6 +1131,8 @@
     const friendCodeBox = document.getElementById("friend-code");
     const friendCodeInput = document.getElementById("friend-code-input");
     const addFriendBtn = document.getElementById("add-friend-btn");
+    const saveFriendBtn = document.getElementById("save-friend-btn");
+    const friendsList = document.getElementById("friends-list");
     const groupNameInput = document.getElementById("group-name-input");
     const groupCodesInput = document.getElementById("group-codes-input");
     const createGroupBtn = document.getElementById("create-group-btn");
@@ -1122,6 +1162,7 @@
     const notificationsBtn = document.getElementById("notifications-btn");
     const voiceCallLink = document.getElementById("voice-call-link");
     const videoCallLink = document.getElementById("video-call-link");
+    const leaveRoomBtn = document.getElementById("leave-room-btn");
     const messageSearch = document.getElementById("message-search");
     const memberList = document.getElementById("member-list");
     const messagesDiv = document.getElementById("messages");
@@ -1443,6 +1484,10 @@
           updates.email = user.email;
         }
 
+        if (!Array.isArray(existingProfile.friendUids)) {
+          updates.friendUids = [];
+        }
+
         if (Object.keys(updates).length > 0) {
           await setDoc(profileRef, updates, { merge: true });
         }
@@ -1468,6 +1513,7 @@
         email: user.email,
         username,
         friendCode,
+        friendUids: [],
         createdAt: Date.now()
       };
 
@@ -1519,9 +1565,61 @@
       monitorBanner.textContent = "All chats are monitored by admins for safety.";
       voiceCallLink.href = "#";
       videoCallLink.href = "#";
+      leaveRoomBtn.classList.add("hidden");
       messageInput.disabled = true;
       sendBtn.disabled = true;
       memberList.innerHTML = '<div class="empty-state">Open a room to see who is around.</div>';
+    }
+
+    function getFriendProfiles() {
+      const friendUids = Array.isArray(currentProfile?.friendUids) ? currentProfile.friendUids : [];
+      return friendUids
+        .map((uid) => profilesByUid.get(uid))
+        .filter(Boolean)
+        .sort((a, b) => (a.username || a.email || "").localeCompare(b.username || b.email || ""));
+    }
+
+    function renderFriendsList() {
+      if (!currentUser || !currentProfile) {
+        friendsList.innerHTML = '<div class="empty-state">Log in to keep a saved friends list.</div>';
+        return;
+      }
+
+      const friends = getFriendProfiles();
+      friendsList.innerHTML = "";
+
+      if (!friends.length) {
+        friendsList.innerHTML = '<div class="empty-state">Add a friend once, then open chats from here.</div>';
+        return;
+      }
+
+      friends.forEach((profile) => {
+        const row = document.createElement("div");
+        row.className = "friend-row";
+
+        const nameWrap = document.createElement("div");
+        nameWrap.className = "member-name";
+
+        const dot = document.createElement("span");
+        dot.className = `presence-dot ${getPresenceClass(profile)}`.trim();
+        dot.title = getPresenceText(profile);
+
+        const label = document.createElement("span");
+        label.textContent = profile.username || profile.email || "Unknown";
+
+        nameWrap.append(dot, label);
+
+        const openBtn = document.createElement("button");
+        openBtn.type = "button";
+        openBtn.className = "secondary";
+        openBtn.textContent = "Chat";
+        openBtn.addEventListener("click", () => {
+          openDirectChatWithProfile(profile);
+        });
+
+        row.append(nameWrap, openBtn);
+        friendsList.append(row);
+      });
     }
 
     function getRoomTypeLabel(roomData = activeRoomData) {
@@ -1561,6 +1659,10 @@
         : "All chats are monitored by admins for safety.";
       voiceCallLink.href = getCallUrl(roomId, roomName, "voice");
       videoCallLink.href = getCallUrl(roomId, roomName, "video");
+      leaveRoomBtn.classList.toggle(
+        "hidden",
+        !currentUser || !activeRoomData || activeRoomData.public || activeRoomData.type === "public"
+      );
       renderMemberList();
     }
 
@@ -1680,6 +1782,7 @@
             }
           });
           renderMemberList();
+          renderFriendsList();
         },
         (error) => {
           setStatus(authStatus, error.message, true);
@@ -1759,6 +1862,7 @@
         : blockedMessage || (activeRoomName ? `Chatting in ${activeRoomName}.` : "Join Everyone, open a private chat, or make a private group.");
 
       friendCodeBox.textContent = loggedIn && currentProfile ? currentProfile.friendCode : "Sign up or log in first";
+      renderFriendsList();
       setAdminPanelState();
     }
 
@@ -2422,26 +2526,121 @@
         }
 
         const friend = friendSnap.docs[0].data();
-        const sortedIds = [currentUser.uid, friend.uid].sort();
-        const roomId = `direct_${sortedIds.join("_")}`;
-        const roomRef = doc(db, "chatRooms", roomId);
-        const roomSnap = await getDoc(roomRef);
-
-        if (!roomSnap.exists()) {
-          await setDoc(roomRef, {
-            type: "direct",
-            name: `${currentProfile.username} & ${friend.username}`,
-            memberIds: sortedIds,
-            memberNames: [currentProfile.username, friend.username],
-            monitoredByAdmins: true,
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp()
-          });
-        }
+        await ensureDirectRoom(friend);
 
         friendCodeInput.value = "";
-        openRoom(roomId, friend.username || "Direct Chat");
+        openDirectChatWithProfile(friend);
         setStatus(chatStatus, `Private chat ready with ${friend.username}.`);
+      } catch (error) {
+        setStatus(chatStatus, error.message, true);
+      }
+    }
+
+    async function ensureDirectRoom(friend) {
+      const sortedIds = [currentUser.uid, friend.uid].sort();
+      const roomId = `direct_${sortedIds.join("_")}`;
+      const roomRef = doc(db, "chatRooms", roomId);
+      const roomSnap = await getDoc(roomRef);
+
+      if (!roomSnap.exists()) {
+        await setDoc(roomRef, {
+          type: "direct",
+          name: `${currentProfile.username} & ${friend.username}`,
+          memberIds: sortedIds,
+          memberNames: [currentProfile.username, friend.username],
+          monitoredByAdmins: true,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp()
+        });
+      }
+
+      return roomId;
+    }
+
+    async function openDirectChatWithProfile(friend) {
+      if (!friend?.uid) {
+        setStatus(chatStatus, "That friend profile could not be opened.", true);
+        return;
+      }
+
+      try {
+        const roomId = await ensureDirectRoom(friend);
+        openRoom(roomId, friend.username || "Direct Chat");
+      } catch (error) {
+        setStatus(chatStatus, error.message, true);
+      }
+    }
+
+    async function addFriendByCode() {
+      if (!currentUser || !currentProfile) {
+        setStatus(chatStatus, "Log in first to add a friend.", true);
+        return;
+      }
+
+      const friendCode = normalizeCode(friendCodeInput.value);
+      if (!friendCode) {
+        setStatus(chatStatus, "Enter a friend code first.", true);
+        return;
+      }
+
+      if (friendCode === currentProfile.friendCode) {
+        setStatus(chatStatus, "Use someone else's code, not your own.", true);
+        return;
+      }
+
+      try {
+        const friendSnap = await getDocs(query(collection(db, "profiles"), where("friendCode", "==", friendCode)));
+        if (friendSnap.empty) {
+          setStatus(chatStatus, "No user found with that friend code.", true);
+          return;
+        }
+
+        const friend = friendSnap.docs[0].data();
+        await setDoc(doc(db, "profiles", currentUser.uid), {
+          friendUids: arrayUnion(friend.uid)
+        }, { merge: true });
+        await setDoc(doc(db, "profiles", friend.uid), {
+          friendUids: arrayUnion(currentUser.uid)
+        }, { merge: true });
+
+        friendCodeInput.value = "";
+        setStatus(chatStatus, `${friend.username || friend.email} was added to your friends list.`);
+      } catch (error) {
+        setStatus(chatStatus, error.message, true);
+      }
+    }
+
+    async function leaveCurrentRoom() {
+      if (!currentUser || !activeRoomId || !activeRoomData) {
+        return;
+      }
+
+      if (activeRoomData.public || activeRoomData.type === "public") {
+        setStatus(chatStatus, "You cannot leave the Everyone room.", true);
+        return;
+      }
+
+      try {
+        const previousMemberIds = Array.isArray(activeRoomData.memberIds) ? activeRoomData.memberIds : [];
+        const otherDirectUid = activeRoomData.type === "direct"
+          ? previousMemberIds.find((uid) => uid !== currentUser.uid)
+          : null;
+        const nextMemberIds = (activeRoomData.memberIds || []).filter((uid) => uid !== currentUser.uid);
+        const nextMemberNames = (activeRoomData.memberNames || []).filter((_, index) => activeRoomData.memberIds?.[index] !== currentUser.uid);
+
+        await setDoc(doc(db, "chatRooms", activeRoomId), {
+          memberIds: nextMemberIds,
+          memberNames: nextMemberNames,
+          updatedAt: serverTimestamp()
+        }, { merge: true });
+
+        if (activeRoomData.type === "direct" && otherDirectUid) {
+          await setDoc(doc(db, "profiles", currentUser.uid), {
+            friendUids: arrayRemove(otherDirectUid)
+          }, { merge: true });
+        }
+
+        setStatus(chatStatus, `You left ${activeRoomName}.`);
       } catch (error) {
         setStatus(chatStatus, error.message, true);
       }
@@ -2666,7 +2865,9 @@
     loginBtn.addEventListener("click", logIn);
     logoutBtn.addEventListener("click", logOut);
     addFriendBtn.addEventListener("click", createOrOpenFriendChat);
+    saveFriendBtn.addEventListener("click", addFriendByCode);
     createGroupBtn.addEventListener("click", createPrivateGroupChat);
+    leaveRoomBtn.addEventListener("click", leaveCurrentRoom);
     adminSearch.addEventListener("input", renderAdminUsers);
     adminSaveUser.addEventListener("click", async () => {
       const nextUsername = adminUsername.value.trim();
