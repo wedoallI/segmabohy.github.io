@@ -189,16 +189,21 @@
     }
 
     body[data-view-mode="phone"] .app {
-      width: min(520px, calc(100% - 20px));
+      width: min(430px, calc(100% - 12px));
+      margin: 10px auto;
     }
 
     body[data-view-mode="phone"] .hero {
       flex-direction: column;
       align-items: flex-start;
+      gap: 14px;
+      padding: 16px 18px;
+      border-radius: 20px;
     }
 
     body[data-view-mode="phone"] .layout {
       grid-template-columns: 1fr;
+      gap: 12px;
     }
 
     body[data-view-mode="phone"] .chat-panel {
@@ -206,12 +211,123 @@
     }
 
     body[data-view-mode="phone"] .msg {
-      max-width: 90%;
+      max-width: 100%;
     }
 
     body[data-view-mode="phone"] .settings-panel,
     body[data-view-mode="phone"] .room-settings-grid {
       grid-template-columns: 1fr;
+    }
+
+    body[data-view-mode="phone"] .brand {
+      gap: 12px;
+    }
+
+    body[data-view-mode="phone"] .logo {
+      width: 54px;
+      height: 54px;
+    }
+
+    body[data-view-mode="phone"] .hero h1 {
+      font-size: 2rem;
+    }
+
+    body[data-view-mode="phone"] .panel {
+      border-radius: 20px;
+    }
+
+    body[data-view-mode="phone"] .auth-panel,
+    body[data-view-mode="phone"] .chat-panel {
+      padding: 16px;
+    }
+
+    body[data-view-mode="phone"] .chat-topbar {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    body[data-view-mode="phone"] .chat-actions {
+      width: 100%;
+      justify-content: flex-start;
+    }
+
+    body[data-view-mode="phone"] .rooms-bar {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      overflow: visible;
+      padding-bottom: 0;
+    }
+
+    body[data-view-mode="phone"] .room-chip {
+      width: 100%;
+      text-align: center;
+      border-radius: 16px;
+      padding: 12px 10px;
+    }
+
+    body[data-view-mode="phone"] .room-tools {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 8px;
+      align-items: stretch;
+    }
+
+    body[data-view-mode="phone"] .room-tools button,
+    body[data-view-mode="phone"] .room-tools a {
+      width: 100%;
+    }
+
+    body[data-view-mode="phone"] .top-tools {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    body[data-view-mode="phone"] .top-tools input {
+      min-width: 0;
+      width: 100%;
+    }
+
+    body[data-view-mode="phone"] .member-panel,
+    body[data-view-mode="phone"] .room-settings,
+    body[data-view-mode="phone"] .pinned-panel {
+      padding: 12px;
+      border-radius: 16px;
+    }
+
+    body[data-view-mode="phone"] .member-row,
+    body[data-view-mode="phone"] .friend-row,
+    body[data-view-mode="phone"] .kick-row {
+      padding: 10px;
+    }
+
+    body[data-view-mode="phone"] .member-meta {
+      font-size: 0.75rem;
+    }
+
+    body[data-view-mode="phone"] .composer {
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    body[data-view-mode="phone"] .composer button {
+      width: 100%;
+    }
+
+    body[data-view-mode="phone"] .composer-tools {
+      flex-direction: column;
+      align-items: stretch;
+    }
+
+    body[data-view-mode="phone"] .composer-tools .field {
+      width: 100%;
+    }
+
+    body[data-view-mode="phone"] #messages {
+      padding: 12px;
+      min-height: 42vh;
     }
 
     .panel {
