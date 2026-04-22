@@ -144,6 +144,40 @@
       margin-top: 18px;
     }
 
+    body[data-view-mode="computer"] .app {
+      width: min(1300px, calc(100% - 40px));
+    }
+
+    body[data-view-mode="computer"] .layout {
+      grid-template-columns: 360px 1fr;
+    }
+
+    body[data-view-mode="phone"] .app {
+      width: min(520px, calc(100% - 20px));
+    }
+
+    body[data-view-mode="phone"] .hero {
+      flex-direction: column;
+      align-items: flex-start;
+    }
+
+    body[data-view-mode="phone"] .layout {
+      grid-template-columns: 1fr;
+    }
+
+    body[data-view-mode="phone"] .chat-panel {
+      min-height: 60vh;
+    }
+
+    body[data-view-mode="phone"] .msg {
+      max-width: 90%;
+    }
+
+    body[data-view-mode="phone"] .settings-panel,
+    body[data-view-mode="phone"] .room-settings-grid {
+      grid-template-columns: 1fr;
+    }
+
     .panel {
       background: var(--panel);
       border: 1px solid var(--panel-border);
@@ -1089,6 +1123,14 @@
               <div class="settings-card">
                 <h4>Cursor</h4>
                 <div class="field">
+                  <label for="view-mode">View mode</label>
+                  <select id="view-mode">
+                    <option value="auto">Auto</option>
+                    <option value="computer">Computer</option>
+                    <option value="phone">Phone</option>
+                  </select>
+                </div>
+                <div class="field">
                   <label for="cursor-style">Cursor style</label>
                   <select id="cursor-style">
                     <option value="default">Default</option>
@@ -1305,6 +1347,7 @@
     const availabilitySelect = document.getElementById("availability-select");
     const customStatusInput = document.getElementById("custom-status");
     const avatarUrlInput = document.getElementById("avatar-url");
+    const viewModeSelect = document.getElementById("view-mode");
     const cursorStyle = document.getElementById("cursor-style");
     const soundLevel = document.getElementById("sound-level");
     const saveSettingsBtn = document.getElementById("save-settings-btn");
@@ -1510,6 +1553,18 @@
       }
       try {
         localStorage.setItem("wedoall-cursor-style", normalized);
+      } catch {}
+    }
+
+    function applyViewMode(mode) {
+      const normalized = mode || "auto";
+      if (normalized === "auto") {
+        document.body.removeAttribute("data-view-mode");
+      } else {
+        document.body.setAttribute("data-view-mode", normalized);
+      }
+      try {
+        localStorage.setItem("wedoall-view-mode", normalized);
       } catch {}
     }
 
@@ -2241,6 +2296,7 @@
       availabilitySelect.value = loggedIn && currentProfile ? getAvailability(currentProfile) : "active";
       customStatusInput.value = loggedIn && currentProfile?.customStatus ? currentProfile.customStatus : "";
       avatarUrlInput.value = loggedIn && currentProfile?.avatarUrl ? currentProfile.avatarUrl : "";
+      viewModeSelect.value = loggedIn && currentProfile?.viewMode ? currentProfile.viewMode : (localStorage.getItem("wedoall-view-mode") || "auto");
       cursorStyle.value = loggedIn && currentProfile?.cursorStyle ? currentProfile.cursorStyle : (localStorage.getItem("wedoall-cursor-style") || "default");
       soundLevel.value = loggedIn && currentProfile?.soundLevel ? currentProfile.soundLevel : "soft";
 
@@ -3541,9 +3597,11 @@
       const selectedAvailability = availabilitySelect.value;
       const selectedCustomStatus = customStatusInput.value.trim();
       const selectedAvatarUrl = avatarUrlInput.value.trim();
+      const selectedViewMode = viewModeSelect.value;
       const selectedCursor = cursorStyle.value;
       const selectedSoundLevel = soundLevel.value;
 
+      applyViewMode(selectedViewMode);
       applyCursorStyle(selectedCursor);
 
       if (!currentUser) {
@@ -3558,6 +3616,7 @@
             availability: selectedAvailability,
             customStatus: selectedCustomStatus,
             avatarUrl: selectedAvatarUrl,
+            viewMode: selectedViewMode,
             cursorStyle: selectedCursor,
             soundLevel: selectedSoundLevel,
             isOnline: selectedAvailability !== "offline",
@@ -3694,7 +3753,9 @@
           watchAdminUsers();
           watchAuditLogs();
           watchProfilesDirectory();
+          applyViewMode(currentProfile?.viewMode || localStorage.getItem("wedoall-view-mode") || "auto");
           applyCursorStyle(currentProfile?.cursorStyle || localStorage.getItem("wedoall-cursor-style") || "default");
+          viewModeSelect.value = currentProfile?.viewMode || localStorage.getItem("wedoall-view-mode") || "auto";
           cursorStyle.value = currentProfile?.cursorStyle || localStorage.getItem("wedoall-cursor-style") || "default";
           soundLevel.value = currentProfile?.soundLevel || "soft";
           setPresence(true);
@@ -3710,6 +3771,8 @@
     setSignedInState(null);
     clearRoomState();
     updateNotificationsButton();
+    applyViewMode(localStorage.getItem("wedoall-view-mode") || "auto");
+    viewModeSelect.value = localStorage.getItem("wedoall-view-mode") || "auto";
     applyCursorStyle(localStorage.getItem("wedoall-cursor-style") || "default");
     cursorStyle.value = localStorage.getItem("wedoall-cursor-style") || "default";
     soundLevel.value = "soft";
